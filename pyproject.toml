@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "AIChatbot"
+version = "0.1.0"
+description = "A project for processing and querying PDFs using Langchain and integrating with chatbots"
+authors = ["Aarush <mrcode200@gmail.com>", "Abhishesh <abhishesh@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.12,<3.13"
+
+langchain-community = { version = "^0.2.0", extras = ["document_loaders", "embeddings", "vectorstores", "chat_models"] }
+langchain = { version = "^0.2.0", extras = ["prompts", "retrievers"] }
+langchain-core = { version = "^0.2.0", extras = ["output_parsers", "runnables"] }
+langchain-text-splitters = "^0.2.0"
+unstructured = {extras = ["all-docs"], version = "^0.14.5"}
+black = "^24.4.2"
+bandit = "^1.7.9"
+flake8 = "^7.0.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+include = ["aichatbot/resources/*"]
