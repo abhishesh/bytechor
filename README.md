@@ -4,6 +4,13 @@
 
 ### Install dependencies
 
+* Install miniconda and create python3.12 environment
+
+```shell
+conda create --name py312 python=3.12
+conda activate py312
+```
+
 * Ollama
 
 ```shell
