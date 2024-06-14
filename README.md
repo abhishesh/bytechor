@@ -11,6 +11,10 @@ ollama pull nomic-embed-text
 ollama pull mistral
 ollama list
 ```
+# Poetry
+```shell
+brew install poetry
+```
 
 * Poppler - PDF Reading
 
