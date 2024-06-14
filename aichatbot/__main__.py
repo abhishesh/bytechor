@@ -9,15 +9,16 @@ from langchain_community.chat_models import ChatOllama
 from langchain_core.runnables import RunnablePassthrough
 from langchain.retrievers.multi_query import MultiQueryRetriever
 
+
 # Define the local path for the PDF file
-with pkg_resources.path("aichatbot.resources", "bitcoin.pdf") as pdf_path:
-    local_path = str(pdf_path)
-    try:
-        loader = UnstructuredPDFLoader(file_path=local_path)
-        data = loader.load()
-    except Exception as e:
-        print("could not load file")
-        exit(1)
+pdf_path = pkg_resources.files("aichatbot.resources").joinpath("bitcoin.pdf")
+local_path = str(pdf_path)
+try:
+    loader = UnstructuredPDFLoader(file_path=local_path)
+    data = loader.load()
+except Exception as e:
+    print("could not load file")
+    exit(1)
 
 # Split and chunk the loaded data
 text_splitter = RecursiveCharacterTextSplitter(chunk_size=7500, chunk_overlap=100)

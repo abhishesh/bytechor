@@ -11,7 +11,8 @@ ollama pull nomic-embed-text
 ollama pull mistral
 ollama list
 ```
-# Poetry
+
+* Poetry
 ```shell
 brew install poetry
 ```
