@@ -16,6 +16,10 @@ unstructured = {extras = ["all-docs"], version = "^0.14.5"}
 black = "^24.4.2"
 bandit = "^1.7.9"
 flake8 = "^7.0.0"
+pdfminer = "^20191125"
+pdfminer-six = "^20231228"
+pillow-heif = "^0.16.0"
+opencv-python = "^4.10.0.82"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

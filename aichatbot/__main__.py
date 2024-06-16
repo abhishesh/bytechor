@@ -17,7 +17,7 @@ try:
     loader = UnstructuredPDFLoader(file_path=local_path)
     data = loader.load()
 except Exception as e:
-    print("could not load file")
+    print("Could not load file:", e)
     exit(1)
 
 # Split and chunk the loaded data

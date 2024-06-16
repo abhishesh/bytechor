@@ -1,0 +1,36 @@
+@startuml
+actor User
+participant "PDF File" as pdf_file
+participant "UnstructuredPDFLoader" as loader
+participant "Data" as data
+participant "RecursiveCharacterTextSplitter" as text_splitter
+participant "Chunks" as chunks
+participant "OllamaEmbeddings" as embeddings
+participant "Chroma Vector Database" as vector_db
+participant "ChatOllama LLM" as llm
+participant "Query Prompt Template" as query_prompt_template
+participant "MultiQueryRetriever" as retriever
+participant "RAG Prompt Template" as rag_prompt_template
+participant "Chain" as chain
+
+User -> pdf_file: Access PDF file path
+pdf_file -> loader: Load PDF file
+loader -> data: Return loaded data
+data -> text_splitter: Split data into chunks
+text_splitter -> chunks: Return chunks
+chunks -> vector_db: Add chunks
+vector_db -> embeddings: Generate embeddings
+embeddings -> vector_db: Add embeddings
+User -> query_prompt_template: Define query prompt template
+query_prompt_template -> retriever: Initialize retriever
+vector_db -> retriever: Use vector database retriever
+retriever -> chain: Add retriever to chain
+User -> rag_prompt_template: Define RAG prompt template
+rag_prompt_template -> chain: Add RAG prompt to chain
+User -> chain: Invoke chain with input question
+chain -> llm: Process question with LLM
+llm -> retriever: Retrieve relevant documents
+retriever -> chain: Pass retrieved documents
+chain -> llm: Process documents with LLM
+llm -> chain: Generate answer
+chain -> User: Return answer
