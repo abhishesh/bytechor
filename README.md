@@ -1,17 +1,10 @@
-# bytechor
+# ByteChor
 
 ## Hackathon
 
 ### Install dependencies
 
-* Install miniconda and create python3.12 environment
-
-```shell
-conda create --name py312 python=3.12
-conda activate py312
-```
-
-* Ollama
+* Ollama - Install Ollama package for Mac/Linux
 
 ```shell
 ollama pull nomic-embed-text
@@ -19,9 +12,9 @@ ollama pull mistral
 ollama list
 ```
 
-* Poetry
+* UV package manager python
 ```shell
-brew install poetry
+brew install uv
 ```
 
 * Poppler - PDF Reading
@@ -30,13 +23,20 @@ brew install poetry
 brew install poppler
 ```
 
+* Install miniconda and create python3.12 environment
+
+```shell
+conda create --name py312 python=3.12
+conda activate py312
+```
+
 * python modules
 
 ```shell
-poetry install
+uv pip install -r requirements.txt
 ```
 
-* run
+### run project
 
 ```shell
 python -m aichatbot
