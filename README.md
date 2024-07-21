@@ -1,6 +1,6 @@
 # ByteChor
 
-## Hackathon
+## Hackathon - Access code here: https://github.com/abhishesh/bytechor/
 
 ### Install dependencies
 
