@@ -42,6 +42,6 @@ uv pip install -r requirements.txt
 ### run project
 
 ```shell
-python -m aichatbot --pdf_resource_path aichatbot.resources --model_name llama3 --input_question "who is president of India"
-python -m aichatbot --pdf_resource_path aichatbot.resources --model_name llama3 --input_question "what is liquid clustering"
+python -m aichatbot --pdf_resource_path aichatbot.resources --model_name llama3 --input_question "who is president of India" --embedding_dir embeddings
+python -m aichatbot --pdf_resource_path aichatbot.resources --model_name llama3 --input_question "what is consensus algorithm" --embedding_dir embeddings
 ```

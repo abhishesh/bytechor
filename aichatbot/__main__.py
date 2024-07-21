@@ -4,12 +4,12 @@ from langchain_community.document_loaders import UnstructuredPDFLoader
 from langchain_community.embeddings import OllamaEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
-from langchain.prompts import ChatPromptTemplate, PromptTemplate
-from langchain_core.output_parsers import StrOutputParser
+from langchain.prompts import ChatPromptTemplate
 from langchain_community.chat_models import ChatOllama
-from langchain_core.runnables import RunnablePassthrough
-from langchain.retrievers.multi_query import MultiQueryRetriever
-import pickle
+from langchain.chains import RetrievalQA
+from operator import itemgetter
+import os
+
 
 # ANSI escape sequences for colors
 class Colors:
@@ -19,27 +19,42 @@ class Colors:
     OKGREEN = "\033[92m"
     WARNING = "\033[93m"
     FAIL = "\033[91m"
-    ENDC = "\033[0m"  # Resets all colors and styles
+    ENDC = "\033[0m"
     BOLD = "\033[1m"
     UNDERLINE = "\033[4m"
 
-def save_embeddings(vector_db, file_path):
-    # Extract embeddings from the vector database
-    embeddings = vector_db.get_all_embeddings()
-    # Save embeddings to a file
-    with open(file_path, 'wb') as file:
-        pickle.dump(embeddings, file)
-    print(f"Embeddings saved to {file_path}")
 
-def load_embeddings(file_path):
-    # Load embeddings from a file
-    with open(file_path, 'rb') as file:
-        embeddings = pickle.load(file)
-    return embeddings
+def get_or_create_vector_db(pdf_resource_path, embedding_dir):
+    if os.path.exists(embedding_dir) and os.path.isdir(embedding_dir):
+        print(f"Loading embeddings from {embedding_dir}")
+        return Chroma(
+            persist_directory=embedding_dir,
+            embedding_function=OllamaEmbeddings(
+                model="nomic-embed-text", show_progress=True
+            ),
+            collection_name="local-rag",
+        )
+    else:
+        print("Creating new embeddings...")
+        chunks = load_and_split_pdfs(pdf_resource_path)
+        vector_db = Chroma.from_documents(
+            documents=chunks,
+            embedding=OllamaEmbeddings(model="nomic-embed-text", show_progress=True),
+            persist_directory=embedding_dir,
+            collection_name="local-rag",
+        )
+        vector_db.persist()
+        print(f"Embeddings saved to {embedding_dir}")
+        return vector_db
 
-def main(pdf_resource_path, model_name, input_question, save_path=None, load_path=None):
-    # Get all PDF files in the resource path
-    print(f"PDF resource path: {pdf_resource_path}")
+
+def create_vector_db(chunks, embedding_function):
+    return Chroma.from_documents(
+        documents=chunks, embedding=embedding_function, collection_name="local-rag"
+    )
+
+
+def load_and_split_pdfs(pdf_resource_path):
     pdf_dir = pkg_resources.files(pdf_resource_path)
     pdf_files = [entry for entry in pdf_dir.iterdir() if entry.suffix == ".pdf"]
     all_data = []
@@ -58,71 +73,82 @@ def main(pdf_resource_path, model_name, input_question, save_path=None, load_pat
         print("No data loaded from PDF files.")
         exit(1)
 
-    # Split and chunk the loaded data
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=7500, chunk_overlap=100)
-    chunks = text_splitter.split_documents(all_data)
+    return text_splitter.split_documents(all_data)
 
-    if load_path:
-        # Load embeddings from a file if provided
-        print(f"Loading embeddings from {load_path}")
-        embeddings = load_embeddings(load_path)
-        vector_db = Chroma.from_existing_embeddings(embeddings, collection_name="local-rag")
-    else:
-        # Add chunks to the vector database
-        vector_db = Chroma.from_documents(
-            documents=chunks,
-            embedding=OllamaEmbeddings(model="nomic-embed-text", show_progress=True),
-            collection_name="local-rag",
-        )
-        # Save embeddings to a file if save_path is provided
-        if save_path:
-            print(f"Saving embeddings to {save_path}")
-            save_embeddings(vector_db, save_path)
 
-    # Define the LLM model
+from operator import itemgetter
+
+
+def main(pdf_resource_path, model_name, input_question, embedding_dir):
+    vector_db = get_or_create_vector_db(pdf_resource_path, embedding_dir)
+
     llm = ChatOllama(model=model_name)
 
-    # Define the query prompt template
-    QUERY_PROMPT = PromptTemplate(
-        input_variables=["question"],
-        template="""You are an AI language model assistant. Your task is to generate five
-        different versions of the given user question to retrieve relevant documents from
-        a vector database. By generating multiple perspectives on the user question, your
-        goal is to help the user overcome some of the limitations of the distance-based
-        similarity search. Provide these alternative questions separated by newlines.
-        Original question: {question}""",
+    # Enhance the retriever without score_threshold
+    retriever = vector_db.as_retriever(
+        search_type="similarity",
+        search_kwargs={"k": 10},  # Increase k to get more results initially
     )
 
-    # Initialize the retriever with the LLM and query prompt
-    retriever = MultiQueryRetriever.from_llm(
-        vector_db.as_retriever(), llm, prompt=QUERY_PROMPT
-    )
+    # Improve the prompt
+    template = """Use ONLY the following pieces of context to answer the question at the end.
+    If you don't know the answer based solely on this context, say "I don't have enough information to answer this question."
+    Always cite the specific part of the context you used to answer the question.
 
-    # Define the RAG prompt template
-    template = """Answer the question based ONLY on the following context:
+    Context:
     {context}
+
     Question: {question}
-    """
+
+    Answer:"""
+
     prompt = ChatPromptTemplate.from_template(template)
 
-    # Define the chain for processing the input and getting the answer
-    chain = (
-        {"context": retriever, "question": RunnablePassthrough()}
-        | prompt
-        | llm
-        | StrOutputParser()
+    # Create a RetrievalQA chain
+    qa_chain = RetrievalQA.from_chain_type(
+        llm=llm,
+        chain_type="stuff",
+        retriever=retriever,
+        return_source_documents=True,
+        chain_type_kwargs={"prompt": prompt},
     )
 
-    # Invoke the chain with an input question and print the answer
-    answer = chain.invoke(input_question)
-    print(f"{Colors.OKGREEN}{answer}{Colors.ENDC}")
+    # Get the answer
+    result = qa_chain.invoke({"query": input_question})
+    answer = result["result"]
+    source_docs = result["source_documents"]
 
-    # Delete all collections in the vector database
-    vector_db.delete_collection()
+    # Post-processing step to filter source documents
+    filtered_docs = []
+    for doc in source_docs:
+        if hasattr(doc, "metadata") and "score" in doc.metadata:
+            if doc.metadata["score"] > 0.5:  # Adjust this threshold as needed
+                filtered_docs.append(doc)
+        else:
+            filtered_docs.append(doc)  # Include docs without scores
+
+    # Sort filtered docs by score if available
+    filtered_docs.sort(key=lambda x: x.metadata.get("score", 0), reverse=True)
+
+    if not filtered_docs:
+        print(
+            f"{Colors.WARNING}No relevant information found in the context. The model may not have accurate information to answer this question.{Colors.ENDC}"
+        )
+    else:
+        print(f"{Colors.OKGREEN}{answer}{Colors.ENDC}")
+
+    # Print the filtered and sorted source documents
+    print("\nSource Documents:")
+    for doc in filtered_docs:
+        score = doc.metadata.get("score", "N/A")
+        print(f"{Colors.OKCYAN}Score: {score}{Colors.ENDC}")
+        print(f"{Colors.OKCYAN}{doc.page_content[:200]}...{Colors.ENDC}\n")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Process PDF and query using LangChain."
+        description="Process PDF and query using LangChain with saved embeddings."
     )
     parser.add_argument(
         "--pdf_resource_path",
@@ -140,11 +166,16 @@ if __name__ == "__main__":
         "--input_question", type=str, required=True, help="The input question to ask."
     )
     parser.add_argument(
-        "--save_path", type=str, required=False, help="The path to save embeddings."
-    )
-    parser.add_argument(
-        "--load_path", type=str, required=False, help="The path to load embeddings."
+        "--embedding_dir",
+        type=str,
+        required=True,
+        help="The directory to save/load embeddings.",
     )
 
     args = parser.parse_args()
-    main(args.pdf_resource_path, args.model_name, args.input_question, args.save_path, args.load_path)
+    main(
+        args.pdf_resource_path,
+        args.model_name,
+        args.input_question,
+        args.embedding_dir,
+    )
