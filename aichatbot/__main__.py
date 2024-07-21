@@ -77,8 +77,6 @@ def load_and_split_pdfs(pdf_resource_path):
     return text_splitter.split_documents(all_data)
 
 
-from operator import itemgetter
-
 
 def main(pdf_resource_path, model_name, input_question, embedding_dir):
     vector_db = get_or_create_vector_db(pdf_resource_path, embedding_dir)
