@@ -18,7 +18,7 @@ We are developing AI chatbots using open-source LLM models, ensuring that our kn
 
 ## Process Flow
 
-![Process Flow Diagram](./image/bytechor.png)
+![Process Flow Diagram](./design/bytechor.png)
 
 
 ## Tech Stack
