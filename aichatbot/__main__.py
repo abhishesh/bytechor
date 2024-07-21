@@ -9,7 +9,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_community.chat_models import ChatOllama
 from langchain_core.runnables import RunnablePassthrough
 from langchain.retrievers.multi_query import MultiQueryRetriever
-
+import pickle
 
 # ANSI escape sequences for colors
 class Colors:
@@ -23,15 +23,29 @@ class Colors:
     BOLD = "\033[1m"
     UNDERLINE = "\033[4m"
 
+def save_embeddings(vector_db, file_path):
+    # Extract embeddings from the vector database
+    embeddings = vector_db.get_all_embeddings()
+    # Save embeddings to a file
+    with open(file_path, 'wb') as file:
+        pickle.dump(embeddings, file)
+    print(f"Embeddings saved to {file_path}")
 
-def main(pdf_resource_path, model_name, input_question):
+def load_embeddings(file_path):
+    # Load embeddings from a file
+    with open(file_path, 'rb') as file:
+        embeddings = pickle.load(file)
+    return embeddings
+
+def main(pdf_resource_path, model_name, input_question, save_path=None, load_path=None):
     # Get all PDF files in the resource path
+    print(f"PDF resource path: {pdf_resource_path}")
     pdf_dir = pkg_resources.files(pdf_resource_path)
     pdf_files = [entry for entry in pdf_dir.iterdir() if entry.suffix == ".pdf"]
     all_data = []
 
     for pdf_file in pdf_files:
-        print(f"loading {pdf_file}")
+        print(f"Loading {pdf_file}")
         local_path = str(pdf_file)
         try:
             loader = UnstructuredPDFLoader(file_path=local_path)
@@ -48,12 +62,22 @@ def main(pdf_resource_path, model_name, input_question):
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=7500, chunk_overlap=100)
     chunks = text_splitter.split_documents(all_data)
 
-    # Add chunks to the vector database
-    vector_db = Chroma.from_documents(
-        documents=chunks,
-        embedding=OllamaEmbeddings(model="nomic-embed-text", show_progress=True),
-        collection_name="local-rag",
-    )
+    if load_path:
+        # Load embeddings from a file if provided
+        print(f"Loading embeddings from {load_path}")
+        embeddings = load_embeddings(load_path)
+        vector_db = Chroma.from_existing_embeddings(embeddings, collection_name="local-rag")
+    else:
+        # Add chunks to the vector database
+        vector_db = Chroma.from_documents(
+            documents=chunks,
+            embedding=OllamaEmbeddings(model="nomic-embed-text", show_progress=True),
+            collection_name="local-rag",
+        )
+        # Save embeddings to a file if save_path is provided
+        if save_path:
+            print(f"Saving embeddings to {save_path}")
+            save_embeddings(vector_db, save_path)
 
     # Define the LLM model
     llm = ChatOllama(model=model_name)
@@ -96,7 +120,6 @@ def main(pdf_resource_path, model_name, input_question):
     # Delete all collections in the vector database
     vector_db.delete_collection()
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Process PDF and query using LangChain."
@@ -116,6 +139,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--input_question", type=str, required=True, help="The input question to ask."
     )
+    parser.add_argument(
+        "--save_path", type=str, required=False, help="The path to save embeddings."
+    )
+    parser.add_argument(
+        "--load_path", type=str, required=False, help="The path to load embeddings."
+    )
 
     args = parser.parse_args()
-    main(args.pdf_resource_path, args.model_name, args.input_question)
+    main(args.pdf_resource_path, args.model_name, args.input_question, args.save_path, args.load_path)
