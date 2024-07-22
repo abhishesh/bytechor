@@ -1,7 +1,5 @@
 # ByteChor
 
-## Hackathon - Access code here: https://github.com/abhishesh/bytechor/
-
 ### Install dependencies
 
 * Ollama - Install Ollama package for Mac/Linux
